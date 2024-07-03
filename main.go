@@ -16,10 +16,11 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	err = ParseMJLog(f)
+	game, err := ParseMJLog(f)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatalln(err)
 	}
+	fmt.Println(game.Scores)
 }
 
 type MJLogXML struct {
@@ -35,30 +36,30 @@ type Node struct {
 	Content string     `xml:",chardata"`
 }
 
-func ParseMJLog(r io.Reader) error {
+func ParseMJLog(r io.Reader) (*Game, error) {
 	var mjlog MJLogXML
 	err := xml.NewDecoder(r).Decode(&mjlog)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(mjlog.XMLNodes) < 4 {
-		return fmt.Errorf(`not enough nodes in mjlog: %+v`, mjlog.XMLNodes)
+		return nil, fmt.Errorf(`not enough nodes in mjlog: %+v`, mjlog.XMLNodes)
 	}
 	shuffleNode := mjlog.XMLNodes[0]
 	goNode := mjlog.XMLNodes[1]
 	unNode := mjlog.XMLNodes[2]
 	taikyokuNode := mjlog.XMLNodes[3]
 	if shuffleNode.XMLName.Local != "SHUFFLE" {
-		return fmt.Errorf(`expected "SHUFFLE" node, got %s`, shuffleNode.XMLName.Local)
+		return nil, fmt.Errorf(`expected "SHUFFLE" node, got %s`, shuffleNode.XMLName.Local)
 	}
 	if goNode.XMLName.Local != "GO" {
-		return fmt.Errorf(`expected "GO" node, got %s`, shuffleNode.XMLName.Local)
+		return nil, fmt.Errorf(`expected "GO" node, got %s`, shuffleNode.XMLName.Local)
 	}
 	if unNode.XMLName.Local != "UN" {
-		return fmt.Errorf(`expected "UN" node, got %s`, shuffleNode.XMLName.Local)
+		return nil, fmt.Errorf(`expected "UN" node, got %s`, shuffleNode.XMLName.Local)
 	}
 	if taikyokuNode.XMLName.Local != "TAIKYOKU" {
-		return fmt.Errorf(`expected "TAIKYOKU" node, got %s`, shuffleNode.XMLName.Local)
+		return nil, fmt.Errorf(`expected "TAIKYOKU" node, got %s`, shuffleNode.XMLName.Local)
 	}
 
 	game := Game{
@@ -84,15 +85,15 @@ func ParseMJLog(r io.Reader) error {
 	}
 	n0Attr, err := getAttr(unNode.Attr, "n0")
 	if err != nil {
-		return fmt.Errorf("parsing unNode: %w", err)
+		return nil, fmt.Errorf("parsing unNode: %w", err)
 	}
 	n1Attr, err := getAttr(unNode.Attr, "n1")
 	if err != nil {
-		return fmt.Errorf("parsing unNode: %w", err)
+		return nil, fmt.Errorf("parsing unNode: %w", err)
 	}
 	n2Attr, err := getAttr(unNode.Attr, "n2")
 	if err != nil {
-		return fmt.Errorf("parsing unNode: %w", err)
+		return nil, fmt.Errorf("parsing unNode: %w", err)
 	}
 	game.Players[0].Name = n0Attr.Value
 	game.Players[1].Name = n1Attr.Value
@@ -100,7 +101,7 @@ func ParseMJLog(r io.Reader) error {
 	if !game.Samma {
 		n3Attr, err := getAttr(unNode.Attr, "n3")
 		if err != nil {
-			return fmt.Errorf("parsing unNode: %w", err)
+			return nil, fmt.Errorf("parsing unNode: %w", err)
 		}
 		game.Players[3].Name = n3Attr.Value
 	}
@@ -114,7 +115,7 @@ func ParseMJLog(r io.Reader) error {
 			fmt.Println("AGARI node:", node)
 			scIdx := slices.IndexFunc(node.Attr, func(attr xml.Attr) bool { return attr.Name.Local == "sc" })
 			if scIdx == -1 {
-				return fmt.Errorf(`attribute "sc" not found in %+v`, node.Attr)
+				return nil, fmt.Errorf(`attribute "sc" not found in %+v`, node.Attr)
 			}
 			scAttr := node.Attr[scIdx]
 			before, delta, _ := parseScoreDelta(scAttr.Value)
@@ -124,15 +125,15 @@ func ParseMJLog(r io.Reader) error {
 			kyoutaku, err := getKyoutaku(node.Attr)
 			fmt.Println("kyoutaku:T", kyoutaku)
 			if err != nil {
-				return fmt.Errorf("getKyoutaku(%+v): %w", node.Attr, err)
+				return nil, fmt.Errorf("getKyoutaku(%+v): %w", node.Attr, err)
 			}
 			agariPlayer, err := getAttr(node.Attr, "who")
 			if err != nil {
-				return fmt.Errorf("searching Agari Player: %w", err)
+				return nil, fmt.Errorf("searching Agari Player: %w", err)
 			}
 			agariPlayerId, err := strconv.Atoi(agariPlayer.Value)
 			if err != nil {
-				return fmt.Errorf("searching Agari Player: %w", err)
+				return nil, fmt.Errorf("searching Agari Player: %w", err)
 			}
 			scores[agariPlayerId] += kyoutaku
 			fmt.Printf("before: %d, delta: %d, after: %d\n", before, delta, scores)
@@ -145,14 +146,14 @@ func ParseMJLog(r io.Reader) error {
 				game.Scores[i], err = strconv.Atoi(gameResultRaw[2*i])
 			}
 			if err != nil {
-				return fmt.Errorf(`strconv.Atoi(%v): %w`, gameResultRaw, err)
+				return nil, fmt.Errorf(`strconv.Atoi(%v): %w`, gameResultRaw, err)
 			}
 
 		case "RYUUKYOKU":
 			fmt.Println("RYUUKYOKU node:", node)
 			scIdx := slices.IndexFunc(node.Attr, func(attr xml.Attr) bool { return attr.Name.Local == "sc" })
 			if scIdx == -1 {
-				return fmt.Errorf(`attribute "sc" not found in %+v`, node.Attr)
+				return nil, fmt.Errorf(`attribute "sc" not found in %+v`, node.Attr)
 			}
 			scAttr := node.Attr[scIdx]
 			before, delta, _ := parseScoreDelta(scAttr.Value)
@@ -168,7 +169,7 @@ func ParseMJLog(r io.Reader) error {
 				game.Scores[i], err = strconv.Atoi(gameResultRaw[2*i])
 			}
 			if err != nil {
-				return fmt.Errorf(`strconv.Atoi(%+v): %w`, gameResultRaw, err)
+				return nil, fmt.Errorf(`strconv.Atoi(%+v): %w`, gameResultRaw, err)
 			}
 			fmt.Printf("before: %d, delta: %d, after: %d\n", before, delta, scores)
 
@@ -177,7 +178,7 @@ func ParseMJLog(r io.Reader) error {
 		}
 	}
 	fmt.Println("game.Scores:", game.Scores)
-	return nil
+	return &game, nil
 }
 
 func getAttr(attrs []xml.Attr, target string) (xml.Attr, error) {
