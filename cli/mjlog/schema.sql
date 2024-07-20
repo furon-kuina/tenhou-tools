@@ -1,0 +1,28 @@
+CREATE TABLE yonma_game
+(
+  id BIGSERIAL PRIMARY KEY,
+  "time" TIMESTAMP(6) NOT NULL,
+  url VARCHAR(255),
+  "table" INT NOT NULL,
+  aka BOOLEAN NOT NULL,
+  nashinashi BOOLEAN NOT NULL,
+  tonpuu BOOLEAN NOT NULL,
+  player1 VARCHAR(48) NOT NULL,
+  player2 VARCHAR(48) NOT NULL,
+  player3 VARCHAR(48) NOT NULL,
+  player4 VARCHAR(48)
+);
+
+CREATE TABLE sanma_game
+(
+  id BIGSERIAL PRIMARY KEY,
+  "time" TIMESTAMP(6) NOT NULL,
+  url VARCHAR(255),
+  "table" INT NOT NULL,
+  aka BOOLEAN NOT NULL,
+  nashinashi BOOLEAN NOT NULL,
+  tonpuu BOOLEAN NOT NULL,
+  player1 VARCHAR(48) NOT NULL,
+  player2 VARCHAR(48) NOT NULL,
+  player3 VARCHAR(48) NOT NULL
+);
